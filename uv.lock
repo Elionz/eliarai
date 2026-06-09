@@ -188,7 +188,7 @@ wheels = [
 ]
 
 [[package]]
-name = "eliar"
+name = "eliarai"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

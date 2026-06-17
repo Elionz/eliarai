@@ -3,6 +3,8 @@ import argparse
 from dotenv import load_dotenv
 from google.genai import types
 from google import genai
+from prompts import system_prompt
+from call_function import available_functions
 
 load_dotenv()
 api_key = os.environ.get("GEMINI_API_KEY")
@@ -11,6 +13,7 @@ if api_key is None:
     raise RuntimeError("API is missing!!")
 
 client = genai.Client(api_key=api_key)
+
 
 
 def main():
@@ -29,7 +32,9 @@ def main():
         print(f"User prompt: {args.user_prompt}")
 
     response = client.models.generate_content(
-        model="gemini-2.5-flash", contents=messages
+        model="gemini-2.5-flash", 
+        contents=messages,
+        config=types.GenerateContentConfig(system_instruction=system_prompt, tools=[available_functions]),
     )
 
 
@@ -39,7 +44,12 @@ def main():
     if args.verbose is True:
         print("Prompt tokens:", response.usage_metadata.prompt_token_count)
         print("Response tokens:", response.usage_metadata.candidates_token_count)
-    print(response.text)
+
+    if response.function_calls:
+        for function_call in response.function_calls:
+            print(f"Calling function: {function_call.name}({function_call.args})")
+    else:
+        print(response.text)
 
 
 

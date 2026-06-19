@@ -1,5 +1,4 @@
-import os
-import argparse
+import os, argparse, sys
 from dotenv import load_dotenv
 from google.genai import types
 from google import genai
@@ -31,41 +30,53 @@ def main():
     if args.verbose is True:
         print(f"User prompt: {args.user_prompt}")
 
-    response = client.models.generate_content(
-        model="gemini-2.5-flash", 
-        contents=messages,
-        config=types.GenerateContentConfig(system_instruction=system_prompt, tools=[available_functions]),
-    )
+    for _ in range(20):
+        response = client.models.generate_content(
+            model="gemini-2.5-flash", 
+            contents=messages,
+            config=types.GenerateContentConfig(system_instruction=system_prompt, tools=[available_functions]),
+        )
+
+        if response.candidates:
+            for candidate in response.candidates:
+                if candidate.content:
+                    messages.append(candidate.content)
 
 
-    if response.usage_metadata is None:
-        raise RuntimeError("API missing...")
+        if response.usage_metadata is None:
+            raise RuntimeError("API missing...")
     
-    if args.verbose is True:
-        print("Prompt tokens:", response.usage_metadata.prompt_token_count)
-        print("Response tokens:", response.usage_metadata.candidates_token_count)
+        if args.verbose is True:
+            print("Prompt tokens:", response.usage_metadata.prompt_token_count)
+            print("Response tokens:", response.usage_metadata.candidates_token_count)
 
-    if response.function_calls:
-        function_results = []
-        for function_call in response.function_calls:
-            function_call_result = call_function(function_call, verbose=args.verbose)
+        if response.function_calls:
+            function_results = []
+            for function_call in response.function_calls:
+                function_call_result = call_function(function_call, verbose=args.verbose)
 
-            if not function_call_result.parts:
-                 raise Exception("Empty")
+                if not function_call_result.parts:
+                    raise Exception("Empty")
             
-            if function_call_result.parts[0].function_response is None:
-                raise Exception("No details found")
+                if function_call_result.parts[0].function_response is None:
+                    raise Exception("No details found")
 
-            if function_call_result.parts[0].function_response.response is None:
-                raise Exception("No data found")
+                if function_call_result.parts[0].function_response.response is None:
+                    raise Exception("No data found")
             
-            function_results.append(function_call_result.parts[0])
+                function_results.append(function_call_result.parts[0])
             
-            if args.verbose:
-                print(f"-> {function_call_result.parts[0].function_response.response}")
+                if args.verbose:
+                    print(f"-> {function_call_result.parts[0].function_response.response}")
+
+            messages.append(types.Content(role="user", parts=function_results))
             
+        else:
+            print(response.text)
+            break
     else:
-        print(response.text)
+        print("Maximum iterations reached without finishing")
+        sys.exit(1)
 
 
 
